@@ -315,190 +315,178 @@ def analyze_single_file(file_input, file_name, mode: str = "personal"):
     return "Connection failed after multiple attempts."
 
 def main():
-    # Inject custom CSS for a Modern SaaS Look
-    st.markdown("""
+    # ------------------- 1. THEME SETUP -------------------
+    # Initialize theme state
+    if 'theme' not in st.session_state:
+        st.session_state.theme = 'light'
+
+    # Define color palettes
+    themes = {
+        "light": {
+            "bg": "#F8FAFC",             # Slate-50
+            "text": "#1E293B",           # Slate-800
+            "card": "#FFFFFF",           # White
+            "border": "#E2E8F0",         # Slate-200
+            "shadow": "rgba(0, 0, 0, 0.05)"
+        },
+        "dark": {
+            "bg": "#0F172A",             # Slate-900
+            "text": "#F8FAFC",           # Slate-50
+            "card": "#1E293B",           # Slate-800
+            "border": "#334155",         # Slate-700
+            "shadow": "rgba(0, 0, 0, 0.3)"
+        }
+    }
+    
+    # Get current theme colors
+    current = themes[st.session_state.theme]
+
+    # ------------------- 2. DYNAMIC CSS INJECTION -------------------
+    st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
     
-    /* ------------------- GLOBAL RESET ------------------- */
-    * html, body, [class*="st-"], h1, h2, h3, h4, h5, h6, p, div, span, label, input, textarea, button {
+    /* Dynamic Variables based on Theme */
+    :root {{
+        --background-color: {current['bg']};
+        --text-color: {current['text']};
+        --card-color: {current['card']};
+        --border-color: {current['border']};
+        --shadow-color: {current['shadow']};
+        --primary-color: #4F46E5;
+    }}
+
+    /* Global Reset */
+    * html, body, [class*="st-"], h1, h2, h3, h4, h5, h6, p, div, span, label, input, textarea, button {{
         font-family: 'Inter', sans-serif !important;
-        color: #1E293B;
-    }
+        color: var(--text-color) !important;
+    }}
     
-    .stApp {
-        background-color: #F8FAFC; /* Slate-50 */
-    }
+    .stApp {{
+        background-color: var(--background-color);
+        transition: background-color 0.3s ease;
+    }}
     
     /* Hide Streamlit Branding */
-    #MainMenu { visibility: hidden; }
-    footer { visibility: hidden; }
-    header { visibility: hidden; }
-    [data-testid="stIconMaterial"] { display: none !important; }
+    #MainMenu {{ visibility: hidden; }}
+    footer {{ visibility: hidden; }}
+    header {{ visibility: hidden; }}
+    [data-testid="stIconMaterial"] {{ display: none !important; }}
 
-    /* ------------------- COLOR PALETTE ------------------- */
-    :root {
-        --primary: #4F46E5; /* Indigo-600 */
-        --primary-hover: #4338CA;
-        --secondary: #64748B; /* Slate-500 */
-        --success-bg: #DCFCE7;
-        --success-text: #166534;
-        --card-bg: #FFFFFF;
-        --border-radius: 12px;
-        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    }
-
-    /* ------------------- CUSTOM HEADERS ------------------- */
-    h1 {
-        font-weight: 800 !important;
+    /* Custom Headers */
+    h1 {{
         background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-size: 2.5rem !important;
-        padding-bottom: 1rem;
-    }
-    
-    h2, h3 {
-        color: #0F172A !important;
-        font-weight: 700 !important;
-    }
+        font-weight: 800 !important;
+        padding-bottom: 0.5rem;
+    }}
 
-    /* ------------------- BUTTONS ------------------- */
-    .stButton > button {
+    /* Buttons */
+    .stButton > button {{
         background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%) !important;
         color: white !important;
         border: none !important;
         border-radius: 10px !important;
-        padding: 0.6rem 2rem !important;
+        padding: 0.5rem 1.5rem !important;
         font-weight: 600 !important;
         box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2) !important;
-        transition: all 0.2s ease-in-out !important;
-    }
+        transition: transform 0.2s;
+    }}
     
-    .stButton > button:hover {
+    .stButton > button:hover {{
         transform: translateY(-2px);
-        box-shadow: 0 8px 12px rgba(79, 70, 229, 0.3) !important;
-    }
+    }}
 
-    .stButton > button:active {
-        transform: translateY(0);
-    }
+    /* Cards (Metrics/Uploaders) */
+    [data-testid="stMetric"], [data-testid="stFileUploader"] {{
+        background-color: var(--card-color) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 6px var(--shadow-color) !important;
+    }}
 
-    /* Secondary buttons (Export/Clear) - Hack via CSS targeting specific button types if needed, 
-       or just let them share the style for consistency */
+    /* Inner text for uploader */
+    [data-testid="stFileUploader"] * {{
+        color: var(--text-color) !important;
+    }}
 
-    /* ------------------- TABS (Pill Style) ------------------- */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 16px;
-        background-color: transparent;
-        padding-bottom: 1rem;
-    }
+    /* Selectboxes / dropdown inputs */
+    .stSelectbox > div > div {{
+        background-color: var(--card-color) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 10px !important;
+    }}
+    /* Dropdown menu panel */
+    .stSelectbox [data-baseweb="popover"] {{
+        background-color: var(--card-color) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 10px !important;
+    }}
+    /* Options inside dropdown */
+    .stSelectbox [data-baseweb="menu"] div[role="option"] {{
+        background-color: var(--card-color) !important;
+        color: var(--text-color) !important;
+    }}
+    .stSelectbox [data-baseweb="menu"] div[role="option"]:hover {{
+        background-color: rgba(79, 70, 229, 0.08) !important;
+    }}
 
-    .stTabs [data-baseweb="tab"] {
-        background-color: white !important;
-        border-radius: 50px !important;
-        padding: 8px 24px !important;
-        border: 1px solid #E2E8F0 !important;
-        color: #64748B !important;
-        font-weight: 600 !important;
-        transition: all 0.2s;
-    }
-
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: #EEF2FF !important; /* Indigo-50 */
-        border-color: #4F46E5 !important;
-        color: #4F46E5 !important;
-    }
-
-    /* ------------------- FILE UPLOADER ------------------- */
-    [data-testid="stFileUploader"] {
-        background-color: white;
-        border: 2px dashed #CBD5E1;
-        border-radius: var(--border-radius);
-        padding: 2rem;
-        text-align: center;
-        transition: border-color 0.3s;
-    }
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 10px;
+    }}
     
-    [data-testid="stFileUploader"]:hover {
-        border-color: var(--primary);
-    }
-
-    /* ------------------- CARDS & METRICS ------------------- */
-    /* Style the metric containers to look like cards */
-    [data-testid="stMetric"] {
-        background-color: white;
-        padding: 16px;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow);
-        border: 1px solid #F1F5F9;
-    }
-
-    [data-testid="stMetricLabel"] {
-        color: #64748B !important;
-        font-size: 0.9rem !important;
-    }
-
-    [data-testid="stMetricValue"] {
-        color: #0F172A !important;
-        font-weight: 700 !important;
-        font-size: 1.8rem !important;
-    }
-
-    /* ------------------- EXPANDERS (Results) ------------------- */
-    .streamlit-expanderHeader {
-        background-color: white !important;
-        border-radius: 8px !important;
-        border: 1px solid #E2E8F0 !important;
-        font-weight: 600 !important;
-        color: #334155 !important;
-    }
+    .stTabs [data-baseweb="tab"] {{
+        background-color: var(--card-color) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 30px !important;
+        padding: 5px 20px !important;
+        color: var(--text-color) !important;
+    }}
     
-    .streamlit-expanderContent {
-        background-color: white !important;
-        border-left: 1px solid #E2E8F0;
-        border-right: 1px solid #E2E8F0;
-        border-bottom: 1px solid #E2E8F0;
-        border-radius: 0 0 8px 8px;
-        box-shadow: var(--shadow);
-    }
-
-    /* ------------------- ALERTS ------------------- */
-    .stSuccess {
-        background-color: #F0FDF4 !important;
-        border: 1px solid #BBF7D0 !important;
-        color: #15803D !important;
-        border-radius: 8px;
-    }
-    
-    .stError {
-        background-color: #FEF2F2 !important;
-        border: 1px solid #FECACA !important;
-        color: #B91C1C !important;
-        border-radius: 8px;
-    }
-
-    .stInfo {
-        background-color: #EFF6FF !important;
-        border: 1px solid #BFDBFE !important;
-        color: #1D4ED8 !important;
-        border-radius: 8px;
-    }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {{
+        background-color: rgba(79, 70, 229, 0.1) !important;
+        border-color: var(--primary-color) !important;
+        color: var(--primary-color) !important;
+    }}
     </style>
     """, unsafe_allow_html=True)
-    
-    # ------------------- HERO SECTION -------------------
-    # Using HTML for a custom layout that standard Streamlit can't do
+
+    # ------------------- 3. THEME TOGGLE (VISIBLE IN MAIN) -------------------
+    toggle_col, _ = st.columns([1, 4])
+    with toggle_col:
+        use_dark = st.toggle(
+            "🌙 Dark mode",
+            value=st.session_state.theme == "dark",
+            help="Switch between light and dark themes",
+        )
+    if use_dark and st.session_state.theme != "dark":
+        st.session_state.theme = "dark"
+        st.rerun()
+    elif not use_dark and st.session_state.theme != "light":
+        st.session_state.theme = "light"
+        st.rerun()
+
+    # ------------------- 4. SIDEBAR (STATUS ONLY) -------------------
+    with st.sidebar:
+        st.markdown("### ⚙️ System")
+        if not st.session_state.api_keys:
+            st.session_state.api_keys = load_api_keys()
+        if st.session_state.api_keys:
+            st.success(f"**{len(st.session_state.api_keys)}** API keys loaded")
+        else:
+            st.error("No API keys found")
+
+    # ------------------- 4. MAIN CONTENT -------------------
+    # Hero Title
     st.markdown("""
-    <div style="text-align: center; padding: 2rem 0 3rem 0;">
+    <div style="text-align: center; padding: 1rem 0 2rem 0;">
         <h1>Dashboard Insights AI</h1>
-        <p style="font-size: 1.2rem; color: #64748B; max-width: 700px; margin: 0 auto;">
-            Turn your flat PDF and Image dashboards into 
-            <span style="color: #4F46E5; font-weight: 600;">strategic business intelligence</span> 
-            in seconds.
-        </p>
+        <p style="opacity: 0.8;">Turn your flat dashboards into strategic intelligence.</p>
     </div>
     """, unsafe_allow_html=True)
+    
     
     # Load API keys
     if not st.session_state.api_keys:
@@ -521,12 +509,15 @@ def main():
         """Render upload, preview, and processing for a given mode."""
         st.subheader(friendly_title)
 
+        # Label outside of the uploader card for better spacing
+        st.markdown("**Select your dashboard files**")
         uploads = st.file_uploader(
-            "Select your dashboard files",
+            "",
             type=['pdf', 'png', 'jpg', 'jpeg'],
             accept_multiple_files=True,
             help="You can upload one or more dashboard files at once. We'll analyze each one for you.",
             key=f"uploader_{mode_key}",
+            label_visibility="collapsed",
         )
 
         # Normalize to list or empty list
