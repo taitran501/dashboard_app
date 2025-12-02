@@ -748,6 +748,8 @@ def main():
         with col1:
             if st.button("📊 Export to Excel"):
                 df = pd.DataFrame(st.session_state.results)
+                # Drop internal columns we don't want to expose
+                df = df.drop(columns=["Processing Time", "Status"], errors="ignore")
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     df.to_excel(writer, index=False, sheet_name='Analysis Results')
@@ -762,6 +764,7 @@ def main():
         with col2:
             if st.button("📄 Export to CSV"):
                 df = pd.DataFrame(st.session_state.results)
+                df = df.drop(columns=["Processing Time", "Status"], errors="ignore")
                 csv = df.to_csv(index=False)
                 st.download_button(
                     label="⬇️ Download CSV file",
