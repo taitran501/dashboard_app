@@ -500,15 +500,25 @@ def main():
             key=f"uploader_{mode_key}",
         )
 
-        if uploads:
+        # Normalize to list or empty list
+        if uploads is None:
+            uploads_list = []
+        else:
+            uploads_list = list(uploads)
+
+        # When there are new uploads, overwrite stored files.
+        if uploads_list:
             st.session_state[storage_key] = []
-            for file in uploads:
+            for file in uploads_list:
                 file.seek(0)
                 file_data = BytesIO(file.read())
                 file_data.name = file.name
                 st.session_state[storage_key].append(file_data)
+        # When user clears the uploader (no files), also clear stored cache for this mode.
+        elif storage_key in st.session_state:
+            st.session_state[storage_key] = []
 
-        files_to_process = uploads if uploads else st.session_state.get(storage_key, [])
+        files_to_process = st.session_state.get(storage_key, [])
 
         # Preview Section for uploaded files
         if files_to_process:
@@ -582,76 +592,44 @@ def main():
 
             st.markdown("---")
 
-        # Processing Section
+        # Processing Section (always batch over all files)
         if files_to_process:
             st.markdown("### Let's take a look")
-
-            process_mode = st.radio(
-                "How would you like to proceed?",
-                ["Single File", "Batch Processing"],
-                horizontal=True,
-                help="Analyze one file at a time, or process all your files together?",
-                key=f"process_mode_{mode_key}",
-            )
+            st.caption("We'll analyze all the dashboards you've uploaded in one go.")
 
             if st.button("Start analyzing", type="primary", key=f"start_analyzing_{mode_key}"):
                 st.session_state.results = []
 
-                if process_mode == "Single File":
-                    if len(files_to_process) > 0:
-                        file = files_to_process[0]
-                        file_name = file.name if hasattr(file, 'name') else "uploaded_file"
+                progress_bar = st.progress(0)
+                status_text = st.empty()
 
-                        file.seek(0)
-                        file_copy = BytesIO(file.read())
-                        file_copy.name = file_name
+                for idx, file in enumerate(files_to_process):
+                    file_name = file.name if hasattr(file, 'name') else f"file_{idx+1}"
+                    status_text.text(f"Looking at {idx+1} of {len(files_to_process)}: {file_name}")
 
-                        with st.spinner(f"Taking a close look at {file_name} for you..."):
-                            start_time = time.time()
-                            analysis = analyze_single_file(file_copy, file_name, mode=mode_key)
-                            processing_time = time.time() - start_time
+                    file.seek(0)
+                    file_copy = BytesIO(file.read())
+                    file_copy.name = file_name
 
-                            status = "Success" if not analysis.startswith("Error") else "Failed"
-                            st.session_state.results.append({
-                                "File Name": file_name,
-                                "Analysis": analysis,
-                                "Status": status,
-                                "Processing Time": f"{processing_time:.2f}s",
-                                "Mode": mode_key,
-                            })
-                            if status == "Success":
-                                st.success(f"Great! We've finished analyzing {file_name}.")
-                else:
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
+                    start_time = time.time()
+                    analysis = analyze_single_file(file_copy, file_name, mode=mode_key)
+                    processing_time = time.time() - start_time
 
-                    for idx, file in enumerate(files_to_process):
-                        file_name = file.name if hasattr(file, 'name') else f"file_{idx+1}"
-                        status_text.text(f"Looking at {idx+1} of {len(files_to_process)}: {file_name}")
+                    status = "Success" if not analysis.startswith("Error") else "Failed"
+                    st.session_state.results.append({
+                        "File Name": file_name,
+                        "Analysis": analysis,
+                        "Status": status,
+                        "Processing Time": f"{processing_time:.2f}s",
+                        "Mode": mode_key,
+                    })
 
-                        file.seek(0)
-                        file_copy = BytesIO(file.read())
-                        file_copy.name = file_name
+                    progress_bar.progress((idx + 1) / len(files_to_process))
+                    time.sleep(1)
 
-                        start_time = time.time()
-                        analysis = analyze_single_file(file_copy, file_name, mode=mode_key)
-                        processing_time = time.time() - start_time
-
-                        status = "Success" if not analysis.startswith("Error") else "Failed"
-                        st.session_state.results.append({
-                            "File Name": file_name,
-                            "Analysis": analysis,
-                            "Status": status,
-                            "Processing Time": f"{processing_time:.2f}s",
-                            "Mode": mode_key,
-                        })
-
-                        progress_bar.progress((idx + 1) / len(files_to_process))
-                        time.sleep(1)
-
-                    status_text.empty()
-                    progress_bar.empty()
-                    st.success(f"Wonderful! We've finished analyzing all {len(files_to_process)} files for you.")
+                status_text.empty()
+                progress_bar.empty()
+                st.success(f"Wonderful! We've finished analyzing all {len(files_to_process)} files for you.")
 
     with tab_personal:
         render_mode_section(
