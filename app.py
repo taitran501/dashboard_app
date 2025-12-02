@@ -813,7 +813,7 @@ def main():
                 )
         
         # Clear results button
-        if st.button("🗑️ Start fresh"):
+        if st.button("🗑️ Clear history"):
             st.session_state.results = []
             st.session_state.uploaded_files_data = []
             st.rerun()
