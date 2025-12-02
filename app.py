@@ -315,151 +315,213 @@ def analyze_single_file(file_input, file_name, mode: str = "personal"):
     return "Connection failed after multiple attempts."
 
 def main():
-    # Inject custom CSS for human-centric design
+    # Inject custom CSS for a Modern SaaS Look
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
     
-    /* Hide Streamlit branding */
+    /* ------------------- GLOBAL RESET ------------------- */
+    * html, body, [class*="st-"], h1, h2, h3, h4, h5, h6, p, div, span, label, input, textarea, button {
+        font-family: 'Inter', sans-serif !important;
+        color: #1E293B;
+    }
+    
+    .stApp {
+        background-color: #F8FAFC; /* Slate-50 */
+    }
+    
+    /* Hide Streamlit Branding */
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
     header { visibility: hidden; }
-    
-    /* Apply Nunito font to all elements */
-    * html, body, [class*="st-"], h1, h2, h3, h4, h5, h6, p, div, span, label, input, textarea, button {
-        font-family: 'Nunito', sans-serif !important;
-    }
-    
-    /* Hide Material icon spans that sometimes render as plain text (e.g. side arrows) */
-    [data-testid="stIconMaterial"] {
-        display: none !important;
-    }
-    
-    /* Soft color palette */
+    [data-testid="stIconMaterial"] { display: none !important; }
+
+    /* ------------------- COLOR PALETTE ------------------- */
     :root {
-        --primary-color: #6B9BD2;
-        --primary-hover: #5A8BC2;
-        --background: #FAF9F6;
-        --text-color: #4A4A4A;
-        --success-bg: #E8F5E9;
-        --success-text: #2E7D32;
-        --error-bg: #FFEBEE;
-        --error-text: #C62828;
-        --border-color: #E0E0E0;
+        --primary: #4F46E5; /* Indigo-600 */
+        --primary-hover: #4338CA;
+        --secondary: #64748B; /* Slate-500 */
+        --success-bg: #DCFCE7;
+        --success-text: #166534;
+        --card-bg: #FFFFFF;
+        --border-radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    /* ------------------- CUSTOM HEADERS ------------------- */
+    h1 {
+        font-weight: 800 !important;
+        background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 2.5rem !important;
+        padding-bottom: 1rem;
     }
     
-    /* Main background */
-    .stApp {
-        background-color: var(--background);
+    h2, h3 {
+        color: #0F172A !important;
+        font-weight: 700 !important;
     }
-    
-    /* Style buttons with rounded corners and soft shadows */
+
+    /* ------------------- BUTTONS ------------------- */
     .stButton > button {
-        border-radius: 12px !important;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
-        background-color: var(--primary-color) !important;
+        background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%) !important;
         color: white !important;
-        font-weight: 600 !important;
         border: none !important;
-        padding: 0.5rem 1.5rem !important;
-        transition: all 0.3s ease !important;
+        border-radius: 10px !important;
+        padding: 0.6rem 2rem !important;
+        font-weight: 600 !important;
+        box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2) !important;
+        transition: all 0.2s ease-in-out !important;
     }
     
     .stButton > button:hover {
-        background-color: var(--primary-hover) !important;
-        box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15) !important;
-        transform: translateY(-2px) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 12px rgba(79, 70, 229, 0.3) !important;
     }
-    
-    /* Style text inputs with rounded corners */
-    .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea,
-    .stSelectbox > div > div > select {
-        border-radius: 8px !important;
-        border: 1px solid var(--border-color) !important;
-        padding: 0.5rem !important;
-        transition: all 0.3s ease !important;
+
+    .stButton > button:active {
+        transform: translateY(0);
     }
-    
-    .stTextInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus {
-        border-color: var(--primary-color) !important;
-        box-shadow: 0 0 0 3px rgba(107, 155, 210, 0.1) !important;
-    }
-    
-    /* Style file uploader */
-    .stFileUploader {
-        border-radius: 12px !important;
-    }
-    
-    /* Style tabs */
+
+    /* Secondary buttons (Export/Clear) - Hack via CSS targeting specific button types if needed, 
+       or just let them share the style for consistency */
+
+    /* ------------------- TABS (Pill Style) ------------------- */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+        gap: 16px;
+        background-color: transparent;
+        padding-bottom: 1rem;
     }
-    
+
     .stTabs [data-baseweb="tab"] {
-        border-radius: 8px 8px 0 0 !important;
-        padding: 0.75rem 1.5rem !important;
+        background-color: white !important;
+        border-radius: 50px !important;
+        padding: 8px 24px !important;
+        border: 1px solid #E2E8F0 !important;
+        color: #64748B !important;
+        font-weight: 600 !important;
+        transition: all 0.2s;
+    }
+
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        background-color: #EEF2FF !important; /* Indigo-50 */
+        border-color: #4F46E5 !important;
+        color: #4F46E5 !important;
+    }
+
+    /* ------------------- FILE UPLOADER ------------------- */
+    [data-testid="stFileUploader"] {
+        background-color: white;
+        border: 2px dashed #CBD5E1;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        text-align: center;
+        transition: border-color 0.3s;
     }
     
-    /* Style success/error messages */
-    .stSuccess {
-        background-color: var(--success-bg) !important;
-        color: var(--success-text) !important;
+    [data-testid="stFileUploader"]:hover {
+        border-color: var(--primary);
+    }
+
+    /* ------------------- CARDS & METRICS ------------------- */
+    /* Style the metric containers to look like cards */
+    [data-testid="stMetric"] {
+        background-color: white;
+        padding: 16px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        border: 1px solid #F1F5F9;
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #64748B !important;
+        font-size: 0.9rem !important;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #0F172A !important;
+        font-weight: 700 !important;
+        font-size: 1.8rem !important;
+    }
+
+    /* ------------------- EXPANDERS (Results) ------------------- */
+    .streamlit-expanderHeader {
+        background-color: white !important;
         border-radius: 8px !important;
-        padding: 1rem !important;
-        border-left: 4px solid var(--success-text) !important;
+        border: 1px solid #E2E8F0 !important;
+        font-weight: 600 !important;
+        color: #334155 !important;
+    }
+    
+    .streamlit-expanderContent {
+        background-color: white !important;
+        border-left: 1px solid #E2E8F0;
+        border-right: 1px solid #E2E8F0;
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 0 0 8px 8px;
+        box-shadow: var(--shadow);
+    }
+
+    /* ------------------- ALERTS ------------------- */
+    .stSuccess {
+        background-color: #F0FDF4 !important;
+        border: 1px solid #BBF7D0 !important;
+        color: #15803D !important;
+        border-radius: 8px;
     }
     
     .stError {
-        background-color: var(--error-bg) !important;
-        color: var(--error-text) !important;
-        border-radius: 8px !important;
-        padding: 1rem !important;
-        border-left: 4px solid var(--error-text) !important;
+        background-color: #FEF2F2 !important;
+        border: 1px solid #FECACA !important;
+        color: #B91C1C !important;
+        border-radius: 8px;
     }
-    
+
     .stInfo {
-        background-color: #E3F2FD !important;
-        color: #1565C0 !important;
-        border-radius: 8px !important;
-        padding: 1rem !important;
-        border-left: 4px solid #1565C0 !important;
-    }
-    
-    .stWarning {
-        background-color: #FFF3E0 !important;
-        color: #E65100 !important;
-        border-radius: 8px !important;
-        padding: 1rem !important;
-        border-left: 4px solid #E65100 !important;
-    }
-    
-    /* Style headers and text */
-    h1, h2, h3 {
-        color: var(--text-color) !important;
-        font-weight: 700 !important;
-    }
-    
-    /* Style expanders */
-    .streamlit-expanderHeader {
-        border-radius: 8px !important;
-        background-color: white !important;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
-    }
-    
-    /* Style selectbox */
-    .stSelectbox > div > div {
-        border-radius: 8px !important;
-    }
-    
-    /* Smooth transitions */
-    * {
-        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        background-color: #EFF6FF !important;
+        border: 1px solid #BFDBFE !important;
+        color: #1D4ED8 !important;
+        border-radius: 8px;
     }
     </style>
     """, unsafe_allow_html=True)
     
+    # ------------------- HERO SECTION -------------------
+    # Using HTML for a custom layout that standard Streamlit can't do
+    st.markdown("""
+    <div style="text-align: center; padding: 2rem 0 3rem 0;">
+        <h1>Dashboard Insights AI</h1>
+        <p style="font-size: 1.2rem; color: #64748B; max-width: 700px; margin: 0 auto;">
+            Turn your flat PDF and Image dashboards into 
+            <span style="color: #4F46E5; font-weight: 600;">strategic business intelligence</span> 
+            in seconds.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Load API keys (Logic remains the same)
+    if not st.session_state.api_keys:
+        st.session_state.api_keys = load_api_keys()
+        if not st.session_state.api_keys:
+            st.error("🔒 API configuration required. Please check your setup.")
+            st.stop()
+    
+    # Sidebar with improved styling
+    with st.sidebar:
+        st.markdown("### 🛠️ System Status")
+        st.success(f"**{len(st.session_state.api_keys)}** AI Nodes Active")
+        st.markdown("---")
+        st.markdown("### 📂 Supported Formats")
+        st.markdown("""
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <span style="background:#E2E8F0; padding:4px 10px; border-radius:15px; font-size:0.8rem; font-weight:600;">PDF</span>
+            <span style="background:#E2E8F0; padding:4px 10px; border-radius:15px; font-size:0.8rem; font-weight:600;">PNG</span>
+            <span style="background:#E2E8F0; padding:4px 10px; border-radius:15px; font-size:0.8rem; font-weight:600;">JPG</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("---")    
     # Header with humanized copy
     st.title("Welcome! Let's analyze your dashboards together")
     st.markdown("Share your dashboard images with us, and we'll help you discover the insights that matter most. We support PDF, PNG, and JPG files.")
