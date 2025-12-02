@@ -22,35 +22,70 @@ st.set_page_config(
     layout="wide"
 )
 
-# System instruction constant
-SYS_INSTRUCTION = """
-You are a Senior Business Analyst providing a "First Touch" Executive Summary of a dashboard. 
-Your goal is to give the user an immediate understanding of the business health, trends, and outliers based *strictly* on the visual data.
+# System instruction constants
+SYS_INSTRUCTION_PERSONAL = """
+You are a Senior Strategic Data Consultant. Your client is a C-Level Executive. 
+You are analyzing a dashboard that may consist of multiple pages (e.g., Export, Import, Market Overview).
 
-### 1. GUIDING PRINCIPLES
-*   **Synthesis over List:** Do not just list every number. Group them logically (e.g., "Revenue is strong, driven by X...").
-*   **Visual Logic:** Interpret charts visually. (e.g., "The line chart shows a steady Q1 climb followed by a sharp Q2 drop").
-*   **Strict Honesty:** If a number is blurry or missing, state "Not visible/N/A". Do not hallucinate.
-*   **Conciseness:** Be direct. Bullet points are preferred.
+### 1. ANALYTICAL MINDSET
+*   **Holistic View:** Do not analyze pages in isolation. Look for connections across pages (e.g., "Does the drop in Raw Material Imports on Page 2 explain the drop in Finished Goods Exports on Page 1?").
+*   **The "So What?":** For every major trend, explain the business impact.
+*   **Pareto Principle:** Focus heavily on the top 20% of drivers that create 80% of the value.
+*   **Strict Honesty:** If data is unreadable, ambiguous, or missing, state "Data not actionable/visible."
 
-### 2. REPORT FORMAT (Strict Markdown)
+### 2. REPORT STRUCTURE (Strict Markdown)
 
-#### 🎯 Executive Snapshot
-*   **One-Sentence Verdict:** (e.g., "Performance is trending down due to weak Q3 export volume," or "Strong growth visible in the US market.")
-*   **Primary Metrics:** (Extract the biggest/top-most numbers: Total Value, Volume, etc.)
+#### 🎯 Executive Bottom Line
+*   **The Verdict:** A single, powerful sentence summarizing the overall business health.
+*   **Critical KPI Snapshot:** The 3-4 most vital numbers (Total Revenue, Volume, Net Trade Balance) with a status (✅ On Track / ⚠️ At Risk).
 
-#### 📊 Critical Drivers (Who/What is driving this?)
-*   **Top Performers:** (Top 3 Buyers, Products, or Markets with their specific values).
-*   **Concentration Risk:** (Insight: Is the revenue dependent on just 1-2 buyers? e.g., "Buyer A accounts for >50% of the total value.")
+#### 🔗 Supply Chain & Trade Dynamics
+*   **Import vs. Export:** Compare inflows and outflows. Are we buying more than we are selling? 
+*   **Margin/Value Check:** Compare Unit Prices of Imports vs. Exports. Are we adding sufficient value?
+*   **Inventory Signals:** (e.g., "High imports but low exports suggests a stockpile buildup.")
 
-#### 📈 Trend & Timeline Story
-*   **Trajectory:** (Up/Down/Flat/Volatile).
-*   **Key Movements:** (e.g., "Peaked in March, then plateaued until June.")
-*   **Seasonality:** (Any visible recurring patterns?)
+#### 🧠 Strategic Insights & Drivers
+*   **Top Performers:** Who are the key Buyers/Suppliers driving the business?
+*   **Concentration Risk:** Are we too dependent on one client or supplier? (e.g., "Buyer A accounts for >50% of revenue").
 
-#### 🚨 Anomalies & Red Flags
-*   **Outliers:** (Any sudden spikes, zero-value months, or unexpected drops).
-*   **Data Gaps:** (Any missing months or unreadable sections).
+#### 📉 Trends & Anomalies
+*   **Red Flags:** Highlight sudden spikes, drops, or data gaps.
+
+#### 💡 Actionable Recommendations
+*   **Defensive Moves:** (e.g., "Diversify the supplier base to reduce reliance on Supplier X.")
+*   **Growth Opportunities:** (e.g., "Expand sales in the North Region as it shows the highest ROI.")
+"""
+
+# Enterprise version: same structure but explicitly OMIT the Actionable Recommendations section
+SYS_INSTRUCTION_ENTERPRISE = """
+You are a Senior Strategic Data Consultant. Your client is a C-Level Executive. 
+You are analyzing a dashboard that may consist of multiple pages (e.g., Export, Import, Market Overview).
+
+### 1. ANALYTICAL MINDSET
+*   **Holistic View:** Do not analyze pages in isolation. Look for connections across pages (e.g., "Does the drop in Raw Material Imports on Page 2 explain the drop in Finished Goods Exports on Page 1?").
+*   **The "So What?":** For every major trend, explain the business impact.
+*   **Pareto Principle:** Focus heavily on the top 20% of drivers that create 80% of the value.
+*   **Strict Honesty:** If data is unreadable, ambiguous, or missing, state "Data not actionable/visible."
+
+### 2. REPORT STRUCTURE (Strict Markdown)
+
+#### 🎯 Executive Bottom Line
+*   **The Verdict:** A single, powerful sentence summarizing the overall business health.
+*   **Critical KPI Snapshot:** The 3-4 most vital numbers (Total Revenue, Volume, Net Trade Balance) with a status (✅ On Track / ⚠️ At Risk).
+
+#### 🔗 Supply Chain & Trade Dynamics
+*   **Import vs. Export:** Compare inflows and outflows. Are we buying more than we are selling? 
+*   **Margin/Value Check:** Compare Unit Prices of Imports vs. Exports. Are we adding sufficient value?
+*   **Inventory Signals:** (e.g., "High imports but low exports suggests a stockpile buildup.")
+
+#### 🧠 Strategic Insights & Drivers
+*   **Top Performers:** Who are the key Buyers/Suppliers driving the business?
+*   **Concentration Risk:** Are we too dependent on one client or supplier? (e.g., "Buyer A accounts for >50% of revenue").
+
+#### 📉 Trends & Anomalies
+*   **Red Flags:** Highlight sudden spikes, drops, or data gaps.
+
+IMPORTANT: Do NOT generate a separate \"Actionable Recommendations\" section. Focus only on insights, trends, and risks.
 """
 
 MODEL_NAME = "gemini-2.5-flash"
@@ -64,8 +99,13 @@ if 'model' not in st.session_state:
     st.session_state.model = None
 if 'results' not in st.session_state:
     st.session_state.results = []
-if 'uploaded_files_data' not in st.session_state:
-    st.session_state.uploaded_files_data = []
+if 'uploaded_files_data_personal' not in st.session_state:
+    st.session_state.uploaded_files_data_personal = []
+if 'uploaded_files_data_enterprise' not in st.session_state:
+    st.session_state.uploaded_files_data_enterprise = []
+if 'models' not in st.session_state:
+    # cache models per mode so we don't recreate them every time
+    st.session_state.models = {}
 
 
 def load_api_keys():
@@ -111,16 +151,23 @@ def get_next_api_key():
     return key
 
 
-def initialize_model(api_key):
-    """Initialize Gemini model with given API key"""
+def initialize_model(api_key, mode: str = "personal"):
+    """Initialize Gemini model with given API key and mode (personal/enterprise)."""
+    # Reuse cached model if available
+    cached = st.session_state.models.get(mode)
+    if cached is not None:
+        return cached
+
     try:
         genai.configure(api_key=api_key)
+        sys_instruction = SYS_INSTRUCTION_PERSONAL if mode == "personal" else SYS_INSTRUCTION_ENTERPRISE
         model = genai.GenerativeModel(
             model_name=MODEL_NAME,
-            system_instruction=SYS_INSTRUCTION
+            system_instruction=sys_instruction,
         )
+        st.session_state.models[mode] = model
         return model
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -135,133 +182,137 @@ def split_image_smart(image):
         ]
     return [image]
 
-
-def load_image_from_file(file_input, file_name):
-    """Load image from file (PDF, PNG, or JPG) and return PIL Image"""
+def load_content_from_file(file_input, file_name):
+    """
+    Load content from file.
+    Returns: 
+        - list of PIL Images (one per page if PDF)
+        - error message (or None)
+    """
+    images = []
     try:
         if file_name.lower().endswith('.pdf'):
-            # Handle PDF from uploaded file
-            file_input.seek(0)  # Reset file pointer
+            # Handle PDF - Extract ALL pages
+            file_input.seek(0)
             pdf_bytes = file_input.read()
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            
             if len(doc) < 1:
                 return None, "This PDF file appears to be empty"
-            page = doc.load_page(0)
             
-            # Zoom logic
-            rect = page.rect
-            target_width = 1600
-            zoom = target_width / rect.width
-            if zoom > 2:
-                zoom = 2
-            if zoom < 0.5:
-                zoom = 0.5
+            # Limit to first 10 pages to prevent overloading/timeouts
+            pages_to_process = min(len(doc), 10)
             
-            mat = fitz.Matrix(zoom, zoom)
-            pix = page.get_pixmap(matrix=mat)
-            image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            for i in range(pages_to_process):
+                page = doc.load_page(i)
+                
+                # Zoom logic for better OCR resolution
+                rect = page.rect
+                target_width = 1600
+                zoom = target_width / rect.width
+                zoom = max(0.5, min(zoom, 2.0)) # Clamp zoom between 0.5x and 2.0x
+                
+                mat = fitz.Matrix(zoom, zoom)
+                pix = page.get_pixmap(matrix=mat)
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                images.append(img)
+                
             doc.close()
-            return image, None
+            return images, None
+            
         else:
-            # Handle image files
-            file_input.seek(0)  # Reset file pointer
-            image = Image.open(io.BytesIO(file_input.read()))
-            return image, None
+            # Handle standard image files (JPG, PNG)
+            file_input.seek(0)
+            img = Image.open(io.BytesIO(file_input.read()))
+            images.append(img)
+            return images, None
+            
     except Exception as e:
         return None, f"Sorry, we couldn't read this file: {str(e)}"
 
+def analyze_single_file(file_input, file_name, mode: str = "personal"):
+    """Analyze a single file (PDF with multiple pages, or Image).
 
-def analyze_single_file(file_input, file_name):
-    """Analyze a single file (PDF, PNG, or JPG)"""
+    mode: \"personal\" (full recommendations) or \"enterprise\" (no recommendations).
+    """
     # Get API key and initialize model
     api_key = get_next_api_key()
     if not api_key:
-        return "Oops! We couldn't access our API keys. Please check your key.txt file for us."
+        return "Oops! We couldn't access our API keys. Please check your key.txt file."
     
-    model = initialize_model(api_key)
+    model = initialize_model(api_key, mode=mode)
     if not model:
-        return "Sorry, we had trouble connecting to our analysis service. Please try again in a moment."
+        return "Sorry, we had trouble connecting to our analysis service."
     
-    # 1. Image Loading
-    image, error = load_image_from_file(file_input, file_name)
+    # 1. Content Loading (Now returns a list of images)
+    images, error = load_content_from_file(file_input, file_name)
     if error:
-        # Make error messages more friendly
-        if "Empty PDF" in error:
-            return "This PDF file appears to be empty. Could you check the file and try another one?"
-        return f"Sorry, we couldn't read this file: {error}"
+        return error
 
-    # 2. Resize
-    w, h = image.size
-    max_dimension = 2048
-    if max(w, h) > max_dimension:
-        scale = max_dimension / max(w, h)
-        image = image.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
-
-    images = split_image_smart(image)
-
-    # 3. Prepare content inputs
+    # 2. Prepare content inputs
     content_inputs = []
-    user_prompt = """
-    Analyze this dashboard image. 
-    Provide the 'First Touch' Executive Summary as defined in your system instructions.
-    Focus on finding the narrative behind the numbers.
+    
+    # Add prompt first or last, Gemini handles both. 
+    # Adding a context prompt helps the model understand it might see multiple pages.
+    user_prompt = f"""
+    Analyze the attached dashboard images. This document contains {len(images)} page(s).
+    
+    If there are multiple pages (e.g. Export vs Import), compare them to find business correlations.
+    Follow the 'Senior Strategic Data Consultant' system instruction structure strictly.
     """
-
-    for img in images:
-        content_inputs.append(img)
     content_inputs.append(user_prompt)
 
+    # 3. Add all images to the request
+    for img in images:
+        # Optional: Apply split_image_smart if an individual page is extremely tall
+        # But usually PDF pages are standard ratio. We pass the whole page.
+        # We resize if huge to save bandwidth/tokens
+        w, h = img.size
+        max_dim = 2048
+        if max(w, h) > max_dim:
+            scale = max_dim / max(w, h)
+            img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+        
+        content_inputs.append(img)
+
     # 4. Inference with retry logic
-    max_retries = len(st.session_state.api_keys)  # Try all keys if needed
+    max_retries = len(st.session_state.api_keys)
     for attempt in range(max_retries):
         try:
-            safety_settings = {
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-            }
-
+            # Increase temperature slightly for more \"insightful/creative\" connections
             generation_config = genai.types.GenerationConfig(
-                temperature=0.1,
+                temperature=0.2, 
                 max_output_tokens=8192,
             )
 
             response = model.generate_content(
                 content_inputs,
-                generation_config=generation_config,
-                safety_settings=safety_settings
+                generation_config=generation_config
             )
 
             if response.candidates:
                 candidate = response.candidates[0]
                 if candidate.content and candidate.content.parts:
                     return candidate.content.parts[0].text
-                elif candidate.finish_reason == 3:
-                    # Safety filter blocked - try next key
+                elif candidate.finish_reason == 3: # Safety block
                     if attempt < max_retries - 1:
                         api_key = get_next_api_key()
                         model = initialize_model(api_key)
                         continue
-                    return "We couldn't analyze this content due to safety filters. Could you try a different file?"
-                else:
-                    return f"Sorry, we couldn't generate an analysis for this file. Please try again."
-            else:
-                return "Hmm, we didn't get a response from our analysis service. Could you try again?"
+                    return "Safety filters blocked the analysis. Please check the file content."
+            
+            return "No response generated. Please try again."
 
         except Exception as e:
             error_msg = str(e)
-            # If rate limit or API error, try next key
-            if ("quota" in error_msg.lower() or "rate" in error_msg.lower() or 
-                "api" in error_msg.lower()) and attempt < max_retries - 1:
+            if ("quota" in error_msg.lower() or "rate" in error_msg.lower()) and attempt < max_retries - 1:
                 api_key = get_next_api_key()
                 model = initialize_model(api_key)
-                time.sleep(1)  # Brief pause before retry
+                time.sleep(1)
                 continue
-            return f"Oops, we ran into an issue: {error_msg}. Please try again in a moment."
-    
-    return "We're having trouble connecting right now. Could you try again in a few moments?"
-
+            return f"Analysis failed: {error_msg}"
+            
+    return "Connection failed after multiple attempts."
 
 def main():
     # Inject custom CSS for human-centric design
@@ -434,153 +485,187 @@ def main():
     
     # File Input Section
     st.header("Share your dashboards with us")
-    
-    uploaded_files = st.file_uploader(
-        "Select your dashboard files",
-        type=['pdf', 'png', 'jpg', 'jpeg'],
-        accept_multiple_files=True,
-        help="You can upload one or more dashboard files at once. We'll analyze each one for you."
-    )
-    if uploaded_files:
-        # Store file data in session state for later preview
-        st.session_state.uploaded_files_data = []
-        for file in uploaded_files:
-            file.seek(0)
-            file_data = BytesIO(file.read())
-            file_data.name = file.name
-            st.session_state.uploaded_files_data.append(file_data)
-    
-    # Get files to process
-    files_to_process = uploaded_files if uploaded_files else st.session_state.uploaded_files_data
-    
-    # Preview Section for uploaded files
-    if files_to_process:
-        st.header("Take a look before we analyze")
-        
-        preview_tab1, preview_tab2 = st.tabs(["📊 Your Dashboard", "📝 Your Results"])
-        
-        with preview_tab1:
-            if files_to_process:
+
+    tab_personal, tab_enterprise = st.tabs(["For you", "For enterprise"])
+
+    def render_mode_section(mode_key: str, storage_key: str, friendly_title: str, teaser: str | None = None):
+        """Render upload, preview, and processing for a given mode."""
+        st.subheader(friendly_title)
+
+        uploads = st.file_uploader(
+            "Select your dashboard files",
+            type=['pdf', 'png', 'jpg', 'jpeg'],
+            accept_multiple_files=True,
+            help="You can upload one or more dashboard files at once. We'll analyze each one for you.",
+            key=f"uploader_{mode_key}",
+        )
+
+        if uploads:
+            st.session_state[storage_key] = []
+            for file in uploads:
+                file.seek(0)
+                file_data = BytesIO(file.read())
+                file_data.name = file.name
+                st.session_state[storage_key].append(file_data)
+
+        files_to_process = uploads if uploads else st.session_state.get(storage_key, [])
+
+        # Preview Section for uploaded files
+        if files_to_process:
+            st.caption("Take a quick look at your dashboards before we dive into the insights.")
+
+            preview_tab1, preview_tab2 = st.tabs(["📊 Your Dashboard", "📝 Your Results"])
+
+            with preview_tab1:
                 selected_file_idx = st.selectbox(
                     "Which dashboard would you like to see?",
                     range(len(files_to_process)),
-                    format_func=lambda x: files_to_process[x].name if hasattr(files_to_process[x], 'name') else f"File {x+1}"
+                    format_func=lambda x: files_to_process[x].name if hasattr(files_to_process[x], 'name') else f"File {x+1}",
+                    key=f"preview_select_{mode_key}",
                 )
-                
+
                 if selected_file_idx is not None and selected_file_idx < len(files_to_process):
                     selected_file = files_to_process[selected_file_idx]
                     file_name = selected_file.name if hasattr(selected_file, 'name') else f"file_{selected_file_idx+1}"
-                    
+
                     try:
-                        # Create a copy of file data to avoid pointer issues
                         selected_file.seek(0)
                         file_copy = BytesIO(selected_file.read())
                         file_copy.name = file_name
-                        
-                        image, error = load_image_from_file(file_copy, file_name)
+
+                        images, error = load_content_from_file(file_copy, file_name)
+
                         if error:
                             st.error(error)
                         else:
-                            st.image(image, caption=file_name, use_container_width=True)
+                            st.image(
+                                images[0],
+                                caption=f"{file_name} (Page 1 of {len(images)})",
+                                use_container_width=True,
+                            )
+
+                            if len(images) > 1:
+                                with st.expander(f"View all {len(images)} pages"):
+                                    for i, img in enumerate(images):
+                                        st.image(
+                                            img,
+                                            caption=f"Page {i+1}",
+                                            use_container_width=True,
+                                        )
                     except Exception as e:
                         st.error(f"Error loading preview: {str(e)}")
-        
-        with preview_tab2:
-            if st.session_state.results:
-                selected_result_idx = st.selectbox(
-                    "Which result would you like to review?",
-                    range(len(st.session_state.results)),
-                    format_func=lambda x: st.session_state.results[x]['File Name']
-                )
-                
-                if selected_result_idx is not None and selected_result_idx < len(st.session_state.results):
-                    result = st.session_state.results[selected_result_idx]
-                    st.markdown(f"**File:** {result['File Name']}")
-                    st.markdown(f"**Status:** {result['Status']}")
-                    st.markdown(f"**Processing Time:** {result.get('Processing Time', 'N/A')}")
-                    st.markdown("---")
-                    if result['Status'] == "Success":
-                        # Escape dollar signs to prevent LaTeX rendering issues
-                        st.markdown(result['Analysis'].replace("$", "\$"))
-                    else:
-                        st.error(result['Analysis'])
-            else:
-                st.info("We haven't analyzed anything yet. Go ahead and start an analysis when you're ready!")
-        
-        st.markdown("---")
-    
-    # Processing Section
-    if files_to_process:
-        st.header("Let's take a look")
-        
-        process_mode = st.radio(
-            "How would you like to proceed?",
-            ["Single File", "Batch Processing"],
-            horizontal=True,
-            help="Analyze one file at a time, or process all your files together?"
-        )
-        
-        if st.button("Start analyzing", type="primary"):
-            st.session_state.results = []
-            
-            if process_mode == "Single File":
-                # Process first file only
-                if len(files_to_process) > 0:
-                    file = files_to_process[0]
-                    file_name = file.name if hasattr(file, 'name') else "uploaded_file"
-                    
-                    # Create a copy to avoid file pointer issues
-                    file.seek(0)
-                    file_copy = BytesIO(file.read())
-                    file_copy.name = file_name
-                    
-                    with st.spinner(f"Taking a close look at {file_name} for you..."):
+
+            with preview_tab2:
+                if st.session_state.results:
+                    selected_result_idx = st.selectbox(
+                        "Which result would you like to review?",
+                        range(len(st.session_state.results)),
+                        format_func=lambda x: st.session_state.results[x]['File Name'],
+                        key=f"result_select_{mode_key}",
+                    )
+
+                    if selected_result_idx is not None and selected_result_idx < len(st.session_state.results):
+                        result = st.session_state.results[selected_result_idx]
+                        st.markdown(f"**File:** {result['File Name']}")
+                        st.markdown(f"**Status:** {result['Status']}")
+                        st.markdown(f"**Processing Time:** {result.get('Processing Time', 'N/A')}")
+                        st.markdown(f"**Mode:** {result.get('Mode', 'personal').title()}")
+                        st.markdown("---")
+                        if result['Status'] == "Success":
+                            st.markdown(result['Analysis'].replace("$", "\\$"))
+                            if result.get("Mode") == "enterprise":
+                                st.info("Want tailored action plans? Subscribe to unlock detailed recommendations.")
+                        else:
+                            st.error(result['Analysis'])
+                else:
+                    st.info("We haven't analyzed anything yet. Go ahead and start an analysis when you're ready!")
+
+            st.markdown("---")
+
+        # Processing Section
+        if files_to_process:
+            st.markdown("### Let's take a look")
+
+            process_mode = st.radio(
+                "How would you like to proceed?",
+                ["Single File", "Batch Processing"],
+                horizontal=True,
+                help="Analyze one file at a time, or process all your files together?",
+                key=f"process_mode_{mode_key}",
+            )
+
+            if st.button("Start analyzing", type="primary", key=f"start_analyzing_{mode_key}"):
+                st.session_state.results = []
+
+                if process_mode == "Single File":
+                    if len(files_to_process) > 0:
+                        file = files_to_process[0]
+                        file_name = file.name if hasattr(file, 'name') else "uploaded_file"
+
+                        file.seek(0)
+                        file_copy = BytesIO(file.read())
+                        file_copy.name = file_name
+
+                        with st.spinner(f"Taking a close look at {file_name} for you..."):
+                            start_time = time.time()
+                            analysis = analyze_single_file(file_copy, file_name, mode=mode_key)
+                            processing_time = time.time() - start_time
+
+                            status = "Success" if not analysis.startswith("Error") else "Failed"
+                            st.session_state.results.append({
+                                "File Name": file_name,
+                                "Analysis": analysis,
+                                "Status": status,
+                                "Processing Time": f"{processing_time:.2f}s",
+                                "Mode": mode_key,
+                            })
+                            if status == "Success":
+                                st.success(f"Great! We've finished analyzing {file_name}.")
+                else:
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+
+                    for idx, file in enumerate(files_to_process):
+                        file_name = file.name if hasattr(file, 'name') else f"file_{idx+1}"
+                        status_text.text(f"Looking at {idx+1} of {len(files_to_process)}: {file_name}")
+
+                        file.seek(0)
+                        file_copy = BytesIO(file.read())
+                        file_copy.name = file_name
+
                         start_time = time.time()
-                        analysis = analyze_single_file(file_copy, file_name)
+                        analysis = analyze_single_file(file_copy, file_name, mode=mode_key)
                         processing_time = time.time() - start_time
-                        
+
                         status = "Success" if not analysis.startswith("Error") else "Failed"
                         st.session_state.results.append({
                             "File Name": file_name,
                             "Analysis": analysis,
                             "Status": status,
-                            "Processing Time": f"{processing_time:.2f}s"
+                            "Processing Time": f"{processing_time:.2f}s",
+                            "Mode": mode_key,
                         })
-                        if status == "Success":
-                            st.success(f"Great! We've finished analyzing {file_name}.")
-            else:
-                # Batch processing
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-                
-                for idx, file in enumerate(files_to_process):
-                    file_name = file.name if hasattr(file, 'name') else f"file_{idx+1}"
-                    status_text.text(f"Looking at {idx+1} of {len(files_to_process)}: {file_name}")
-                    
-                    # Create a copy to avoid file pointer issues
-                    file.seek(0)
-                    file_copy = BytesIO(file.read())
-                    file_copy.name = file_name
-                    
-                    start_time = time.time()
-                    analysis = analyze_single_file(file_copy, file_name)
-                    processing_time = time.time() - start_time
-                    
-                    status = "Success" if not analysis.startswith("Error") else "Failed"
-                    st.session_state.results.append({
-                        "File Name": file_name,
-                        "Analysis": analysis,
-                        "Status": status,
-                        "Processing Time": f"{processing_time:.2f}s"
-                    })
-                    
-                    progress_bar.progress((idx + 1) / len(files_to_process))
-                    time.sleep(1)  # Brief pause between files
-                
-                status_text.empty()
-                progress_bar.empty()
-                st.success(f"Wonderful! We've finished analyzing all {len(files_to_process)} files for you.")
-                st.rerun()
+
+                        progress_bar.progress((idx + 1) / len(files_to_process))
+                        time.sleep(1)
+
+                    status_text.empty()
+                    progress_bar.empty()
+                    st.success(f"Wonderful! We've finished analyzing all {len(files_to_process)} files for you.")
+
+    with tab_personal:
+        render_mode_section(
+            mode_key="personal",
+            storage_key="uploaded_files_data_personal",
+            friendly_title="For you – get full insights plus actionable recommendations",
+        )
+
+    with tab_enterprise:
+        render_mode_section(
+            mode_key="enterprise",
+            storage_key="uploaded_files_data_enterprise",
+            friendly_title="For enterprise – high-level insights (no detailed recommendations)",
+        )
     
     # Results Section
     if st.session_state.results:
@@ -608,7 +693,10 @@ def main():
             ):
                 # Find corresponding uploaded file for preview
                 file_preview = None
-                files_to_check = uploaded_files if uploaded_files else st.session_state.uploaded_files_data
+                files_to_check = (
+                    st.session_state.get("uploaded_files_data_personal", [])
+                    + st.session_state.get("uploaded_files_data_enterprise", [])
+                )
                 for uploaded_file in files_to_check:
                     file_name = uploaded_file.name if hasattr(uploaded_file, 'name') else "unknown"
                     if file_name == result['File Name']:
@@ -625,9 +713,13 @@ def main():
                             file_copy = BytesIO(file_preview.read())
                             file_copy.name = result['File Name']
                             
-                            image, error = load_image_from_file(file_copy, result['File Name'])
-                            if not error:
-                                st.image(image, caption=result['File Name'], use_container_width=True)
+                            images, error = load_content_from_file(file_copy, result['File Name'])
+                            if not error and images:
+                                st.image(
+                                    images[0],
+                                    caption=f"{result['File Name']} (Page 1 of {len(images)})",
+                                    use_container_width=True,
+                                )
                             else:
                                 st.warning("We couldn't load the preview, but the analysis is ready below.")
                         except Exception as e:
@@ -636,13 +728,17 @@ def main():
                     with col_analysis:
                         st.subheader("📝 What We Discovered")
                         if result['Status'] == "Success":
-                            st.markdown(result['Analysis'].replace("$", "\$"))
+                            st.markdown(result['Analysis'].replace("$", "\\$"))
+                            if result.get("Mode") == "enterprise":
+                                st.info("Want tailored action plans? Subscribe to unlock detailed recommendations.")
                         else:
                             st.error(f"Oops, we ran into an issue with this file: {result['Analysis']}")
                 else:
                     # If file not found, just show analysis
                     if result['Status'] == "Success":
-                        st.markdown(result['Analysis'].replace("$", "\$"))
+                        st.markdown(result['Analysis'].replace("$", "\\$"))
+                        if result.get("Mode") == "enterprise":
+                            st.info("Want tailored action plans? Subscribe to unlock detailed recommendations.")
                     else:
                         st.error(f"We encountered a problem: {result['Analysis']}")
         
