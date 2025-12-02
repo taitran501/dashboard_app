@@ -500,50 +500,17 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # Load API keys (Logic remains the same)
+    # Load API keys
     if not st.session_state.api_keys:
         st.session_state.api_keys = load_api_keys()
         if not st.session_state.api_keys:
             st.error("🔒 API configuration required. Please check your setup.")
             st.stop()
     
-    # Sidebar with improved styling
-    with st.sidebar:
-        st.markdown("### 🛠️ System Status")
-        st.success(f"**{len(st.session_state.api_keys)}** AI Nodes Active")
-        st.markdown("---")
-        st.markdown("### 📂 Supported Formats")
-        st.markdown("""
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <span style="background:#E2E8F0; padding:4px 10px; border-radius:15px; font-size:0.8rem; font-weight:600;">PDF</span>
-            <span style="background:#E2E8F0; padding:4px 10px; border-radius:15px; font-size:0.8rem; font-weight:600;">PNG</span>
-            <span style="background:#E2E8F0; padding:4px 10px; border-radius:15px; font-size:0.8rem; font-weight:600;">JPG</span>
-        </div>
-        """, unsafe_allow_html=True)
-
     st.markdown("---")    
     # Header with humanized copy
     st.title("Welcome! Let's analyze your dashboards together")
     st.markdown("Share your dashboard images with us, and we'll help you discover the insights that matter most. We support PDF, PNG, and JPG files.")
-    
-    # Load API keys
-    if not st.session_state.api_keys:
-        st.session_state.api_keys = load_api_keys()
-        if not st.session_state.api_keys:
-            st.error("Oops! We couldn't find your API keys. Please make sure your key.txt file is set up correctly.")
-            st.stop()
-        else:
-            st.success(f"Great! We're ready to help with {len(st.session_state.api_keys)} API keys loaded.")
-    
-    # Sidebar with info
-    with st.sidebar:
-        st.header("About This Tool")
-        st.info(f"We're using {len(st.session_state.api_keys)} API keys to ensure smooth processing for you.")
-        st.markdown("---")
-        st.markdown("### What We Support")
-        st.markdown("- PDF files")
-        st.markdown("- PNG images")
-        st.markdown("- JPG/JPEG images")
     
     # File Input Section
     st.header("Share your dashboards with us")
