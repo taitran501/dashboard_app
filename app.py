@@ -279,10 +279,9 @@ def main():
         font-family: 'Nunito', sans-serif !important;
     }
     
-    /* Explicitly force Material Icons font for icon elements */
+    /* Hide Material icon spans that sometimes render as plain text (e.g. side arrows) */
     [data-testid="stIconMaterial"] {
-        font-family: 'Material Icons' !important;
-        font-weight: normal !important; /* Icons shouldn't be bold */
+        display: none !important;
     }
     
     /* Soft color palette */
